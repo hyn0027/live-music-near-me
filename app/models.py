@@ -33,21 +33,77 @@ class Event(BaseModel):
         return self
 
     def clean_genre(self) -> "Event":
+        # extract things in bracket out to be a separated entry
+        for i, genre in enumerate(self.band_genre):
+            if "(" in genre and ")" in genre:
+                inside_bracket = genre[genre.find("(") + 1 : genre.find(")")]
+                outside_bracket = (
+                    genre[: genre.find("(")] + genre[genre.find(")") + 1 :]
+                )
+                self.band_genre[i] = outside_bracket.strip()
+                self.band_genre.append(inside_bracket.strip())
+        genres = []
+        for genre in self.band_genre:
+            genres.extend(genre.split("/"))
+        self.band_genre = genres
+        genres = []
+        for genre in self.band_genre:
+            genres.extend(genre.split(","))
+        self.band_genre = genres
         self.band_genre = [genre.strip() for genre in self.band_genre]
         self.band_genre = [genre.capitalize() for genre in self.band_genre]
         subtitution = {
+            "‑": "-",
+            "&amp;": "&",
             "R & B": "R&B",
             "RnB": "R&B",
             "R & b": "R&B",
             "R&b": "R&B",
             "r&b": "R&B",
             "r & b": "R&B",
-            "Hip Hop": "Hip-Hop",
+            "Hip-hop": "Hip hop",
+            "Alt ": "Alternative ",
+            "Alt-": "Alternative ",
+            "Alt.": "Alternative ",
+            "Singer songwriter": "Singer-songwriter",
+            "Post-": "Post ",
+            "Pop-": "Pop ",
+            "Art-": "Art ",
+            "Indie-": "Indie ",
+            "Afro-": "Afro ",
+            "Covers": "cover",
+            "Artpop": "Art pop",
+            "Rock & roll": "Rock and roll",
+            "Rock n roll": "Rock and roll",
+            "Rock'n'roll": "Rock and roll",
+            "Rock 'n' roll": "Rock and roll",
+            "Goth ": "Gothic ",
+            "-influenced": "",
+            '"': "",
+            "  ": " ",
+        }
+        whole_word_substitution = {
+            "Alt": "Alternative",
+            "Goth": "Gothic",
         }
         for i in range(len(self.band_genre)):
             for old, new in subtitution.items():
                 if old in self.band_genre[i]:
                     self.band_genre[i] = self.band_genre[i].replace(old, new)
+                if old.lower() in self.band_genre[i].lower():
+                    self.band_genre[i] = (
+                        self.band_genre[i].replace(old, new).replace(old.lower(), new)
+                    )
+            for old, new in whole_word_substitution.items():
+                if self.band_genre[i] == old:
+                    self.band_genre[i] = new
+        self.band_genre = list(set(self.band_genre))
+        for genre in self.band_genre:
+            if "Not a band" in genre or "Not a musical band" in genre:
+                self.band_genre.remove(genre)
+        for i, genre in enumerate(self.band_genre):
+            if "genre-blending" in genre.lower():
+                self.band_genre[i] = "Genre-blending"
         return self
 
 
