@@ -53,7 +53,8 @@ class Event(BaseModel):
         self.band_genre = [genre.strip() for genre in self.band_genre]
         self.band_genre = [genre.capitalize() for genre in self.band_genre]
         subtitution = {
-            "‑": "-",
+            "‑": " ",
+            "-": " ",
             "&amp;": "&",
             "R & B": "R&B",
             "RnB": "R&B",
