@@ -1,6 +1,7 @@
 import argparse
 import logging
 import os
+from typing import Union
 from dotenv import load_dotenv
 from .core import run_job
 
@@ -17,8 +18,8 @@ def build_parser() -> argparse.ArgumentParser:
 
     parser.add_argument(
         "--path",
-        type=str,
-        default=".asset/bandsintown.html",
+        type=list[str],
+        default=[".asset/bandsintown.html"],
         help="Path to the input file",
     )
     parser.add_argument(
