@@ -18,7 +18,8 @@ def build_parser() -> argparse.ArgumentParser:
 
     parser.add_argument(
         "--path",
-        type=list[str],
+        nargs="+",
+        type=str,
         default=[".asset/bandsintown.html"],
         help="Path to the input file",
     )
