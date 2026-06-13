@@ -1,4 +1,4 @@
-from typing import Optional, List
+from typing import Optional, List, Literal, TypeAlias
 from .models import Event, event_db
 from pydantic import BaseModel
 from openai import OpenAI
@@ -59,16 +59,50 @@ async def get_bands_details_async(
 
 
 def get_band_details(event: Event, api_key: str, area: str) -> Event:
-    prompt = f"""For a given band and its upcoming event details, please provide the band's genre and a very concise introduction about the band.
+    prompt = f"""For a given band and its upcoming event details, please provide the band's genre and a very concise introduction about the band. Also determine whether the event is a must-see event for music lovers in the area (because the band is well-known and highly-praised) and whether you are confident about the information you provide.
+    
+    The main genre of the band should be chosen from the following list: ambient, blues, classical music, country, dance, easy listening, electronic, experimental, folk, hip hop, industrial & noise, jazz, metal, musical theatre and entertainment, new age, pop, psychedelia, punk, r&b, reggae/ska/dancehall, regional music, rock, singer-songwriter, spoken word, other. A band can have multiple main genres.
+    
+    The detailed genre of the band should be subgenres or more specific genres that are not included in the main genre list. For example, if a band is categorized as rock, its detailed genre can be garage rock, indie rock, etc.
 
 Band name: {event.band}
 Venue: {event.venue} near {area}
 Date: {event.date}
 Link to the event page: {event.link}"""
 
+    MainGenre: TypeAlias = Literal[
+        "ambient",
+        "blues",
+        "classical music",
+        "country",
+        "dance",
+        "easy listening",
+        "electronic",
+        "experimental",
+        "folk",
+        "hip hop",
+        "industrial & noise",
+        "jazz",
+        "metal",
+        "musical theatre and entertainment",
+        "new age",
+        "pop",
+        "psychedelia",
+        "punk",
+        "r&b",
+        "reggae/ska/dancehall",
+        "regional music",
+        "rock",
+        "singer-songwriter",
+        "spoken word",
+        "other",
+    ]
+
     class ModelResponse(BaseModel):
-        band_genre: Optional[list[str]]
-        band_info: Optional[str]
+        band_main_genre: list[MainGenre]
+        band_detailed_genre: list[str]
+        band_info: str
+        must_see: bool
         confident: bool
 
     client = OpenAI(api_key=api_key)
@@ -84,7 +118,9 @@ Link to the event page: {event.link}"""
         max_tool_calls=5,
     )
     parsed_response = ModelResponse.model_validate(response.output_parsed)
-    event.band_genre = parsed_response.band_genre or []
+    event.band_genre = parsed_response.band_main_genre or []
+    event.detailed_genre = parsed_response.band_detailed_genre or []
     event.band_info = parsed_response.band_info or ""
     event.band_details_trustworthy = parsed_response.confident
+    event.must_see = parsed_response.must_see
     return event

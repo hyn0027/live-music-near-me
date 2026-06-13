@@ -1,7 +1,7 @@
-from .models import Event
-
 from html import escape
 from pathlib import Path
+
+from .models import Event
 
 
 def generate_html(events: list[Event], path: str, area: str) -> None:
@@ -17,7 +17,8 @@ def generate_html(events: list[Event], path: str, area: str) -> None:
     dated_events = [
         event
         for event in sorted_events
-        if event.numerical_month is not None and event.numerical_date is not None
+        if event.numerical_month is not None
+        and event.numerical_date is not None
     ]
 
     month_names = {
@@ -38,6 +39,7 @@ def generate_html(events: list[Event], path: str, area: str) -> None:
     if len(dated_events) >= 2:
         first_event = dated_events[0]
         last_event = dated_events[-1]
+
         time_span = (
             f"{month_names.get(first_event.numerical_month, str(first_event.numerical_month))} "
             f"{first_event.numerical_date} – "
@@ -46,6 +48,7 @@ def generate_html(events: list[Event], path: str, area: str) -> None:
         )
     elif len(dated_events) == 1:
         only_event = dated_events[0]
+
         time_span = (
             f"{month_names.get(only_event.numerical_month, str(only_event.numerical_month))} "
             f"{only_event.numerical_date}"
@@ -63,26 +66,60 @@ def generate_html(events: list[Event], path: str, area: str) -> None:
         key=str.lower,
     )
 
-    def render_genres(genres: list[str]) -> str:
-        if not genres:
-            return '<span class="muted">No genre info</span>'
+    all_detailed_genres = sorted(
+        {
+            genre.strip()
+            for event in sorted_events
+            for genre in event.detailed_genre
+            if genre.strip()
+        },
+        key=str.lower,
+    )
+
+    def render_genres(
+        genres: list[str],
+        *,
+        empty_text: str,
+        tag_class: str = "",
+    ) -> str:
+        cleaned_genres = [
+            genre.strip()
+            for genre in genres
+            if genre.strip()
+        ]
+
+        if not cleaned_genres:
+            return f'<span class="muted">{escape(empty_text)}</span>'
+
+        class_name = "genre-tag"
+
+        if tag_class:
+            class_name += f" {tag_class}"
 
         return "".join(
-            f'<span class="genre-tag">{escape(genre)}</span>' for genre in genres
+            f'<span class="{class_name}">{escape(genre)}</span>'
+            for genre in cleaned_genres
         )
 
-    def render_genre_filters(genres: list[str]) -> str:
+    def render_genre_filters(
+        genres: list[str],
+        *,
+        filter_type: str,
+    ) -> str:
         if not genres:
-            return '<span class="muted">No genre filters available</span>'
+            return '<span class="muted">No filters available</span>'
 
-        return "".join(f"""
+        return "".join(
+            f"""
             <span class="filter-chip-group">
                 <button
                     class="filter-chip include-chip"
                     type="button"
                     data-filter-mode="include"
+                    data-filter-type="{escape(filter_type)}"
                     data-genre="{escape(genre.lower())}"
                     title="Include {escape(genre)}"
+                    aria-label="Include {escape(genre)}"
                 >
                     + {escape(genre)}
                 </button>
@@ -91,6 +128,7 @@ def generate_html(events: list[Event], path: str, area: str) -> None:
                     class="filter-chip exclude-chip"
                     type="button"
                     data-filter-mode="exclude"
+                    data-filter-type="{escape(filter_type)}"
                     data-genre="{escape(genre.lower())}"
                     title="Exclude {escape(genre)}"
                     aria-label="Exclude {escape(genre)}"
@@ -98,7 +136,30 @@ def generate_html(events: list[Event], path: str, area: str) -> None:
                     −
                 </button>
             </span>
-            """ for genre in genres)
+            """
+            for genre in genres
+        )
+
+    def render_must_see(event: Event) -> str:
+        if event.must_see is True:
+            return """
+            <span class="must-see-badge must-see-yes">
+                ★ Must-see
+            </span>
+            """
+
+        if event.must_see is False:
+            return """
+            <span class="must-see-badge must-see-no">
+                Not must-see
+            </span>
+            """
+
+        return """
+        <span class="must-see-badge must-see-unknown">
+            Must-see not rated
+        </span>
+        """
 
     def render_event(event: Event) -> str:
         warning_html = ""
@@ -106,8 +167,8 @@ def generate_html(events: list[Event], path: str, area: str) -> None:
         if event.band_details_trustworthy is False:
             warning_html = """
             <div class="warning">
-                ⚠️ Genre and info were generated by an LLM. This one is likely incorrect,
-                so be careful and double check.
+                ⚠️ Genre and info were generated by an LLM. This entry is
+                likely incorrect, so please double-check it.
             </div>
             """
 
@@ -118,26 +179,74 @@ def generate_html(events: list[Event], path: str, area: str) -> None:
         )
 
         genre_data = "|".join(
-            genre.strip().lower() for genre in event.band_genre if genre.strip()
+            genre.strip().lower()
+            for genre in event.band_genre
+            if genre.strip()
         )
 
+        detailed_genre_data = "|".join(
+            genre.strip().lower()
+            for genre in event.detailed_genre
+            if genre.strip()
+        )
+
+        if event.must_see is True:
+            must_see_data = "true"
+        elif event.must_see is False:
+            must_see_data = "false"
+        else:
+            must_see_data = "unknown"
+
         return f"""
-        <article class="event-card" data-genres="{escape(genre_data)}">
+        <article
+            class="event-card"
+            data-genres="{escape(genre_data)}"
+            data-detailed-genres="{escape(detailed_genre_data)}"
+            data-must-see="{must_see_data}"
+        >
             <div class="event-header">
-                <div>
-                    <h2>{escape(event.band)}</h2>
+                <div class="event-title-area">
+                    <div class="event-title-row">
+                        <h2>{escape(event.band)}</h2>
+                        {render_must_see(event)}
+                    </div>
+
                     <p class="venue">{escape(event.venue)}</p>
                 </div>
 
-                <a class="event-link" href="{escape(event.link)}" target="_blank" rel="noopener noreferrer">
+                <a
+                    class="event-link"
+                    href="{escape(event.link)}"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                >
                     View event
                 </a>
             </div>
 
             <p class="date">☽ {escape(event.date)}</p>
 
-            <div class="genres">
-                {render_genres(event.band_genre)}
+            <div class="genre-section">
+                <p class="genre-label">Genre</p>
+
+                <div class="genres">
+                    {render_genres(
+                        event.band_genre,
+                        empty_text="No genre info",
+                    )}
+                </div>
+            </div>
+
+            <div class="genre-section detailed-genre-section">
+                <p class="genre-label">Detailed genre</p>
+
+                <div class="genres">
+                    {render_genres(
+                        event.detailed_genre,
+                        empty_text="No detailed genre info",
+                        tag_class="detailed-genre-tag",
+                    )}
+                </div>
             </div>
 
             <p class="band-info">{band_info}</p>
@@ -146,14 +255,31 @@ def generate_html(events: list[Event], path: str, area: str) -> None:
         </article>
         """
 
-    events_html = "\n".join(render_event(event) for event in sorted_events)
-    filters_html = render_genre_filters(all_genres)
+    events_html = "\n".join(
+        render_event(event)
+        for event in sorted_events
+    )
+
+    genre_filters_html = render_genre_filters(
+        all_genres,
+        filter_type="genre",
+    )
+
+    detailed_genre_filters_html = render_genre_filters(
+        all_detailed_genres,
+        filter_type="detailed-genre",
+    )
 
     html = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    />
+
     <title>Upcoming Events</title>
 
     <style>
@@ -187,9 +313,22 @@ def generate_html(events: list[Event], path: str, area: str) -> None:
             margin: 0;
             font-family: Georgia, "Times New Roman", Times, serif;
             background:
-                radial-gradient(circle at 12% 8%, rgba(123, 63, 72, 0.16), transparent 28rem),
-                radial-gradient(circle at 84% 18%, rgba(89, 104, 119, 0.18), transparent 30rem),
-                linear-gradient(180deg, #d8cbbc 0%, var(--paper) 34%, #e9dfd2 100%);
+                radial-gradient(
+                    circle at 12% 8%,
+                    rgba(123, 63, 72, 0.16),
+                    transparent 28rem
+                ),
+                radial-gradient(
+                    circle at 84% 18%,
+                    rgba(89, 104, 119, 0.18),
+                    transparent 30rem
+                ),
+                linear-gradient(
+                    180deg,
+                    #d8cbbc 0%,
+                    var(--paper) 34%,
+                    #e9dfd2 100%
+                );
             color: var(--ink);
             line-height: 1.58;
             font-size: 15px;
@@ -202,8 +341,15 @@ def generate_html(events: list[Event], path: str, area: str) -> None:
             pointer-events: none;
             opacity: 0.28;
             background-image:
-                linear-gradient(rgba(70, 55, 40, 0.045) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(70, 55, 40, 0.035) 1px, transparent 1px);
+                linear-gradient(
+                    rgba(70, 55, 40, 0.045) 1px,
+                    transparent 1px
+                ),
+                linear-gradient(
+                    90deg,
+                    rgba(70, 55, 40, 0.035) 1px,
+                    transparent 1px
+                );
             background-size: 42px 42px;
         }}
 
@@ -212,8 +358,16 @@ def generate_html(events: list[Event], path: str, area: str) -> None:
             overflow: hidden;
             padding: 46px 20px 42px;
             background:
-                linear-gradient(135deg, rgba(38, 35, 31, 0.96), rgba(62, 74, 86, 0.94)),
-                radial-gradient(circle at top, rgba(205, 191, 174, 0.25), transparent 28rem);
+                linear-gradient(
+                    135deg,
+                    rgba(38, 35, 31, 0.96),
+                    rgba(62, 74, 86, 0.94)
+                ),
+                radial-gradient(
+                    circle at top,
+                    rgba(205, 191, 174, 0.25),
+                    transparent 28rem
+                );
             color: #f4eadc;
             text-align: center;
             border-bottom: 1px solid rgba(205, 191, 174, 0.42);
@@ -228,7 +382,12 @@ def generate_html(events: list[Event], path: str, area: str) -> None:
             width: min(460px, 70vw);
             height: 1px;
             transform: translateX(-50%);
-            background: linear-gradient(90deg, transparent, rgba(244, 234, 220, 0.55), transparent);
+            background: linear-gradient(
+                90deg,
+                transparent,
+                rgba(244, 234, 220, 0.55),
+                transparent
+            );
         }}
 
         header h1 {{
@@ -279,7 +438,11 @@ def generate_html(events: list[Event], path: str, area: str) -> None:
 
         .toolbar {{
             background:
-                linear-gradient(180deg, rgba(251, 247, 239, 0.95), rgba(244, 236, 224, 0.94));
+                linear-gradient(
+                    180deg,
+                    rgba(251, 247, 239, 0.95),
+                    rgba(244, 236, 224, 0.94)
+                );
             border: 1px solid var(--border);
             border-left: 4px solid var(--ash-blue);
             border-radius: 18px;
@@ -295,7 +458,7 @@ def generate_html(events: list[Event], path: str, area: str) -> None:
             justify-content: space-between;
             align-items: center;
             gap: 16px;
-            margin-bottom: 14px;
+            margin-bottom: 18px;
             padding-bottom: 13px;
             border-bottom: 1px solid rgba(169, 149, 127, 0.42);
         }}
@@ -318,6 +481,19 @@ def generate_html(events: list[Event], path: str, area: str) -> None:
             font-style: italic;
         }}
 
+        .filter-section {{
+            margin-top: 4px;
+        }}
+
+        .filter-heading {{
+            margin: 0 0 10px;
+            color: var(--soft-ink);
+            font-size: 0.9rem;
+            font-weight: 700;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+        }}
+
         .filter-row {{
             display: flex;
             flex-wrap: wrap;
@@ -330,7 +506,8 @@ def generate_html(events: list[Event], path: str, area: str) -> None:
         }}
 
         .filter-chip,
-        .clear-button {{
+        .clear-button,
+        .must-see-filter {{
             appearance: none;
             border: 1px solid #c6b7a5;
             border-radius: 999px;
@@ -345,7 +522,8 @@ def generate_html(events: list[Event], path: str, area: str) -> None:
         }}
 
         .filter-chip:hover,
-        .clear-button:hover {{
+        .clear-button:hover,
+        .must-see-filter:hover {{
             background: #ece1d2;
             color: var(--wine);
             border-color: var(--wine);
@@ -387,6 +565,90 @@ def generate_html(events: list[Event], path: str, area: str) -> None:
             color: #f8f1e7;
         }}
 
+        .must-see-filter-section {{
+            margin-top: 18px;
+            padding-top: 16px;
+            border-top: 1px solid rgba(169, 149, 127, 0.42);
+        }}
+
+        .must-see-filter-row {{
+            display: flex;
+            flex-wrap: wrap;
+            gap: 9px;
+        }}
+
+        .must-see-filter.active {{
+            background: var(--ash-blue-dark);
+            border-color: var(--ash-blue-dark);
+            color: #f8f1e7;
+        }}
+
+        .must-see-filter.active:hover {{
+            background: var(--ash-blue-dark);
+            border-color: var(--ash-blue-dark);
+            color: #f8f1e7;
+        }}
+
+        .filter-details {{
+            margin-top: 18px;
+            padding-top: 16px;
+            border-top: 1px solid rgba(169, 149, 127, 0.42);
+        }}
+
+        .filter-details summary {{
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--soft-ink);
+            font-size: 0.9rem;
+            font-weight: 700;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            cursor: pointer;
+            list-style: none;
+        }}
+
+        .filter-details summary::-webkit-details-marker {{
+            display: none;
+        }}
+
+        .filter-details summary::before {{
+            content: "▸";
+            display: inline-block;
+            color: var(--wine);
+            transition: transform 160ms ease;
+        }}
+
+        .filter-details[open] summary::before {{
+            transform: rotate(90deg);
+        }}
+
+        .details-hint {{
+            margin-left: auto;
+            color: var(--muted-ink);
+            font-size: 0.78rem;
+            font-style: italic;
+            font-weight: 400;
+            letter-spacing: normal;
+            text-transform: none;
+        }}
+
+        .filter-details[open] .details-hint {{
+            display: none;
+        }}
+
+        .detailed-filter-row {{
+            margin-top: 14px;
+        }}
+
+        .filter-actions {{
+            display: flex;
+            justify-content: flex-end;
+            margin-top: 20px;
+            padding-top: 16px;
+            border-top: 1px solid rgba(169, 149, 127, 0.42);
+        }}
+
         .clear-button {{
             background: rgba(255, 252, 246, 0.8);
             color: var(--muted-ink);
@@ -394,7 +656,10 @@ def generate_html(events: list[Event], path: str, area: str) -> None:
 
         .event-grid {{
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+            grid-template-columns: repeat(
+                auto-fit,
+                minmax(420px, 1fr)
+            );
             gap: 30px;
             align-items: start;
         }}
@@ -403,7 +668,11 @@ def generate_html(events: list[Event], path: str, area: str) -> None:
             position: relative;
             overflow: hidden;
             background:
-                linear-gradient(180deg, rgba(251, 247, 239, 0.98), rgba(246, 238, 226, 0.96));
+                linear-gradient(
+                    180deg,
+                    rgba(251, 247, 239, 0.98),
+                    rgba(246, 238, 226, 0.96)
+                );
             border-radius: 18px;
             padding: 26px;
             box-shadow:
@@ -455,6 +724,17 @@ def generate_html(events: list[Event], path: str, area: str) -> None:
             padding-left: 14px;
         }}
 
+        .event-title-area {{
+            min-width: 0;
+        }}
+
+        .event-title-row {{
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 8px 10px;
+        }}
+
         h2 {{
             margin: 0;
             font-size: 1.26rem;
@@ -469,6 +749,38 @@ def generate_html(events: list[Event], path: str, area: str) -> None:
             color: var(--soft-ink);
             font-weight: 700;
             line-height: 1.42;
+        }}
+
+        .must-see-badge {{
+            display: inline-flex;
+            align-items: center;
+            flex: 0 0 auto;
+            padding: 4px 9px;
+            border-radius: 999px;
+            font-size: 0.72rem;
+            font-weight: 700;
+            line-height: 1.3;
+            white-space: nowrap;
+        }}
+
+        .must-see-yes {{
+            background: rgba(154, 90, 60, 0.14);
+            color: #75402e;
+            border: 1px solid rgba(154, 90, 60, 0.38);
+        }}
+
+        .must-see-no {{
+            background: rgba(89, 104, 119, 0.09);
+            color: var(--ash-blue-dark);
+            border: 1px solid rgba(89, 104, 119, 0.2);
+        }}
+
+        .must-see-unknown {{
+            background: rgba(139, 111, 71, 0.08);
+            color: var(--muted-ink);
+            border: 1px dashed rgba(139, 111, 71, 0.32);
+            font-style: italic;
+            font-weight: 600;
         }}
 
         .date {{
@@ -505,13 +817,30 @@ def generate_html(events: list[Event], path: str, area: str) -> None:
             background: #63323a;
         }}
 
-        .genres {{
+        .genre-section {{
             position: relative;
             z-index: 1;
+            margin: 2px 0 16px 14px;
+        }}
+
+        .detailed-genre-section {{
+            margin-top: -4px;
+        }}
+
+        .genre-label {{
+            margin: 0 0 7px;
+            color: var(--muted-ink);
+            font-size: 0.75rem;
+            font-weight: 700;
+            letter-spacing: 0.07em;
+            text-transform: uppercase;
+        }}
+
+        .genres {{
             display: flex;
             flex-wrap: wrap;
             gap: 8px;
-            margin: 2px 0 18px 14px;
+            margin: 0;
         }}
 
         .genre-tag {{
@@ -524,6 +853,12 @@ def generate_html(events: list[Event], path: str, area: str) -> None:
             font-size: 0.79rem;
             font-weight: 700;
             line-height: 1.35;
+        }}
+
+        .detailed-genre-tag {{
+            background: rgba(139, 111, 71, 0.11);
+            color: var(--sepia-dark);
+            border-color: rgba(139, 111, 71, 0.28);
         }}
 
         .band-info {{
@@ -606,6 +941,18 @@ def generate_html(events: list[Event], path: str, area: str) -> None:
                 gap: 6px;
             }}
 
+            .filter-details summary {{
+                align-items: flex-start;
+            }}
+
+            .details-hint {{
+                text-align: right;
+            }}
+
+            .filter-actions {{
+                justify-content: flex-start;
+            }}
+
             .event-card {{
                 padding: 22px;
                 border-radius: 16px;
@@ -626,11 +973,18 @@ def generate_html(events: list[Event], path: str, area: str) -> None:
             }}
 
             .date,
-            .genres,
+            .genre-section,
             .band-info,
             .warning {{
                 margin-left: 8px;
+            }}
+
+            .band-info {{
                 padding-left: 0;
+            }}
+
+            .warning {{
+                padding-left: 14px;
             }}
 
             h2 {{
@@ -648,25 +1002,102 @@ def generate_html(events: list[Event], path: str, area: str) -> None:
 <body>
     <header>
         <h1>Upcoming Events in {escape(area)}</h1>
-        <p>{len(sorted_events)} event{"s" if len(sorted_events) != 1 else ""}</p>
-        <p>Content generated by LLM. Please double check for correctness.</p>
-        <div class="time-span">Time span: {escape(time_span)}</div>
+
+        <p>
+            {len(sorted_events)}
+            event{"s" if len(sorted_events) != 1 else ""}
+        </p>
+
+        <p>
+            Content generated by LLM. Please double-check for correctness.
+        </p>
+
+        <div class="time-span">
+            Time span: {escape(time_span)}
+        </div>
     </header>
 
     <main>
-        <section class="toolbar" aria-label="Genre filters">
+        <section class="toolbar" aria-label="Event filters">
             <div class="toolbar-top">
-                <h2>Include or exclude genres</h2>
+                <h2>Filter events</h2>
+
                 <p class="result-count">
-                    Showing <span id="visible-count">{len(sorted_events)}</span> of {len(sorted_events)}
+                    Showing
+                    <span id="visible-count">{len(sorted_events)}</span>
+                    of {len(sorted_events)}
                 </p>
             </div>
 
-            <div class="filter-row">
-                <button class="clear-button" type="button" id="clear-filters">
+            <div class="filter-section">
+                <h3 class="filter-heading">Main Genre</h3>
+
+                <div class="filter-row">
+                    {genre_filters_html}
+                </div>
+            </div>
+
+            <div class="must-see-filter-section">
+                <h3 class="filter-heading">Must-see</h3>
+
+                <div
+                    class="must-see-filter-row"
+                    role="group"
+                    aria-label="Must-see filter"
+                >
+                    <button
+                        class="must-see-filter active"
+                        type="button"
+                        data-must-see-filter="all"
+                    >
+                        All
+                    </button>
+
+                    <button
+                        class="must-see-filter"
+                        type="button"
+                        data-must-see-filter="true"
+                    >
+                        ★ Must-see
+                    </button>
+
+                    <button
+                        class="must-see-filter"
+                        type="button"
+                        data-must-see-filter="false"
+                    >
+                        Not must-see
+                    </button>
+
+                    <button
+                        class="must-see-filter"
+                        type="button"
+                        data-must-see-filter="unknown"
+                    >
+                        Not rated
+                    </button>
+                </div>
+            </div>
+
+            <details class="filter-details">
+                <summary>
+                    <span>Detailed genre</span>
+                    <span class="details-hint">Expand filters</span>
+                </summary>
+
+                <div class="filter-row detailed-filter-row">
+                    {detailed_genre_filters_html}
+                </div>
+            </details>
+
+            <div class="filter-actions">
+                <button
+                    class="clear-button"
+                    type="button"
+                    id="clear-filters"
+                >
                     Show all
                 </button>
-                {filters_html}
             </div>
         </section>
 
@@ -675,47 +1106,115 @@ def generate_html(events: list[Event], path: str, area: str) -> None:
         </section>
 
         <div class="empty-state" id="empty-state">
-            No events match the selected genre filters.
+            No events match the selected filters.
         </div>
     </main>
 
     <script>
-        const filterButtons = Array.from(document.querySelectorAll(".filter-chip"));
-        const clearButton = document.getElementById("clear-filters");
-        const cards = Array.from(document.querySelectorAll(".event-card"));
-        const visibleCount = document.getElementById("visible-count");
-        const emptyState = document.getElementById("empty-state");
+        const filterButtons = Array.from(
+            document.querySelectorAll(".filter-chip")
+        );
 
-        const includedGenres = new Set();
-        const excludedGenres = new Set();
+        const mustSeeButtons = Array.from(
+            document.querySelectorAll(".must-see-filter")
+        );
 
-        function getCardGenres(card) {{
-            if (!card.dataset.genres) {{
+        const clearButton =
+            document.getElementById("clear-filters");
+
+        const cards = Array.from(
+            document.querySelectorAll(".event-card")
+        );
+
+        const visibleCount =
+            document.getElementById("visible-count");
+
+        const emptyState =
+            document.getElementById("empty-state");
+
+        const filterState = {{
+            genre: {{
+                included: new Set(),
+                excluded: new Set(),
+            }},
+            "detailed-genre": {{
+                included: new Set(),
+                excluded: new Set(),
+            }},
+        }};
+
+        let selectedMustSeeFilter = "all";
+
+        function parseGenres(value) {{
+            if (!value) {{
                 return [];
             }}
 
-            return card.dataset.genres
+            return value
                 .split("|")
                 .map((genre) => genre.trim())
                 .filter(Boolean);
+        }}
+
+        function getCardGenres(card, filterType) {{
+            if (filterType === "detailed-genre") {{
+                return parseGenres(card.dataset.detailedGenres);
+            }}
+
+            return parseGenres(card.dataset.genres);
+        }}
+
+        function matchesFilterType(card, filterType) {{
+            const genres = getCardGenres(card, filterType);
+            const state = filterState[filterType];
+
+            const matchesIncluded =
+                state.included.size === 0 ||
+                genres.some((genre) =>
+                    state.included.has(genre)
+                );
+
+            const matchesExcluded =
+                genres.some((genre) =>
+                    state.excluded.has(genre)
+                );
+
+            return matchesIncluded && !matchesExcluded;
+        }}
+
+        function matchesMustSeeFilter(card) {{
+            if (selectedMustSeeFilter === "all") {{
+                return true;
+            }}
+
+            return card.dataset.mustSee === selectedMustSeeFilter;
         }}
 
         function updateEvents() {{
             let shown = 0;
 
             cards.forEach((card) => {{
-                const genres = getCardGenres(card);
+                const matchesGenre =
+                    matchesFilterType(card, "genre");
 
-                const matchesIncluded =
-                    includedGenres.size === 0 ||
-                    genres.some((genre) => includedGenres.has(genre));
+                const matchesDetailedGenre =
+                    matchesFilterType(
+                        card,
+                        "detailed-genre"
+                    );
 
-                const matchesExcluded =
-                    genres.some((genre) => excludedGenres.has(genre));
+                const matchesMustSee =
+                    matchesMustSeeFilter(card);
 
-                const shouldShow = matchesIncluded && !matchesExcluded;
+                const shouldShow =
+                    matchesGenre &&
+                    matchesDetailedGenre &&
+                    matchesMustSee;
 
-                card.classList.toggle("hidden", !shouldShow);
+                card.classList.toggle(
+                    "hidden",
+                    !shouldShow
+                );
 
                 if (shouldShow) {{
                     shown += 1;
@@ -723,31 +1222,66 @@ def generate_html(events: list[Event], path: str, area: str) -> None:
             }});
 
             visibleCount.textContent = shown;
-            emptyState.classList.toggle("visible", shown === 0);
+
+            emptyState.classList.toggle(
+                "visible",
+                shown === 0
+            );
         }}
 
-        function getPairedButton(mode, genre) {{
-            const pairedMode = mode === "include" ? "exclude" : "include";
+        function getPairedButton(
+            mode,
+            filterType,
+            genre
+        ) {{
+            const pairedMode =
+                mode === "include"
+                    ? "exclude"
+                    : "include";
 
-            return document.querySelector(
-                `.filter-chip[data-filter-mode="${{pairedMode}}"][data-genre="${{CSS.escape(genre)}}"]`
-            );
+            return filterButtons.find((button) => {{
+                return (
+                    button.dataset.filterMode === pairedMode &&
+                    button.dataset.filterType === filterType &&
+                    button.dataset.genre === genre
+                );
+            }});
         }}
 
         filterButtons.forEach((button) => {{
             button.addEventListener("click", () => {{
                 const genre = button.dataset.genre;
                 const mode = button.dataset.filterMode;
+                const filterType =
+                    button.dataset.filterType;
 
-                if (!genre || !mode) {{
+                if (
+                    !genre ||
+                    !mode ||
+                    !filterType ||
+                    !filterState[filterType]
+                ) {{
                     return;
                 }}
 
                 const isInclude = mode === "include";
-                const activeSet = isInclude ? includedGenres : excludedGenres;
-                const oppositeSet = isInclude ? excludedGenres : includedGenres;
-                const activeClass = isInclude ? "include-active" : "exclude-active";
-                const oppositeClass = isInclude ? "exclude-active" : "include-active";
+                const state = filterState[filterType];
+
+                const activeSet = isInclude
+                    ? state.included
+                    : state.excluded;
+
+                const oppositeSet = isInclude
+                    ? state.excluded
+                    : state.included;
+
+                const activeClass = isInclude
+                    ? "include-active"
+                    : "exclude-active";
+
+                const oppositeClass = isInclude
+                    ? "exclude-active"
+                    : "include-active";
 
                 if (activeSet.has(genre)) {{
                     activeSet.delete(genre);
@@ -757,10 +1291,17 @@ def generate_html(events: list[Event], path: str, area: str) -> None:
                     oppositeSet.delete(genre);
                     button.classList.add(activeClass);
 
-                    const pairedButton = getPairedButton(mode, genre);
+                    const pairedButton =
+                        getPairedButton(
+                            mode,
+                            filterType,
+                            genre
+                        );
 
                     if (pairedButton) {{
-                        pairedButton.classList.remove(oppositeClass);
+                        pairedButton.classList.remove(
+                            oppositeClass
+                        );
                     }}
                 }}
 
@@ -768,17 +1309,59 @@ def generate_html(events: list[Event], path: str, area: str) -> None:
             }});
         }});
 
+        mustSeeButtons.forEach((button) => {{
+            button.addEventListener("click", () => {{
+                const value =
+                    button.dataset.mustSeeFilter;
+
+                if (!value) {{
+                    return;
+                }}
+
+                selectedMustSeeFilter = value;
+
+                mustSeeButtons.forEach((otherButton) => {{
+                    otherButton.classList.toggle(
+                        "active",
+                        otherButton === button
+                    );
+                }});
+
+                updateEvents();
+            }});
+        }});
+
         clearButton.addEventListener("click", () => {{
-            includedGenres.clear();
-            excludedGenres.clear();
+            Object.values(filterState).forEach(
+                (state) => {{
+                    state.included.clear();
+                    state.excluded.clear();
+                }}
+            );
+
+            selectedMustSeeFilter = "all";
 
             filterButtons.forEach((button) => {{
-                button.classList.remove("include-active");
-                button.classList.remove("exclude-active");
+                button.classList.remove(
+                    "include-active"
+                );
+
+                button.classList.remove(
+                    "exclude-active"
+                );
+            }});
+
+            mustSeeButtons.forEach((button) => {{
+                button.classList.toggle(
+                    "active",
+                    button.dataset.mustSeeFilter === "all"
+                );
             }});
 
             updateEvents();
         }});
+
+        updateEvents();
     </script>
 </body>
 </html>
