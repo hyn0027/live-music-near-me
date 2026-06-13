@@ -15,6 +15,8 @@ class Event(BaseModel):
     numerical_month: Optional[int] = None
     numerical_date: Optional[int] = None
     band_genre: list[str] = []
+    must_see: Optional[bool] = None
+    detailed_genre: list[str] = []
     band_info: str = ""
     band_details_trustworthy: Optional[bool] = None
 
@@ -32,79 +34,34 @@ class Event(BaseModel):
         self.link = self.link.split("?")[0]
         return self
 
-    def clean_genre(self) -> "Event":
-        # extract things in bracket out to be a separated entry
-        for i, genre in enumerate(self.band_genre):
-            if "(" in genre and ")" in genre:
-                inside_bracket = genre[genre.find("(") + 1 : genre.find(")")]
-                outside_bracket = (
-                    genre[: genre.find("(")] + genre[genre.find(")") + 1 :]
-                )
-                self.band_genre[i] = outside_bracket.strip()
-                self.band_genre.append(inside_bracket.strip())
-        genres = []
-        for genre in self.band_genre:
-            genres.extend(genre.split("/"))
-        self.band_genre = genres
-        genres = []
-        for genre in self.band_genre:
-            genres.extend(genre.split(","))
-        self.band_genre = genres
-        self.band_genre = [genre.strip() for genre in self.band_genre]
-        self.band_genre = [genre.capitalize() for genre in self.band_genre]
-        subtitution = {
+    def _clean_genre_str(self, genre_str: str) -> str:
+        genre_str = genre_str.strip().lower()
+        genre_str = genre_str.replace("\n", " ")
+        genre_str = genre_str.replace("\r", " ")
+        genre_str = genre_str.replace("\t", " ")
+        substitution = {
             "‑": " ",
             "-": " ",
             "&amp;": "&",
-            "R & B": "R&B",
-            "RnB": "R&B",
-            "R & b": "R&B",
-            "R&b": "R&B",
-            "r&b": "R&B",
-            "r & b": "R&B",
-            "Hip-hop": "Hip hop",
-            "Alt ": "Alternative ",
-            "Alt-": "Alternative ",
-            "Alt.": "Alternative ",
-            "Singer songwriter": "Singer-songwriter",
-            "Post-": "Post ",
-            "Pop-": "Pop ",
-            "Art-": "Art ",
-            "Indie-": "Indie ",
-            "Afro-": "Afro ",
-            "Covers": "cover",
-            "Artpop": "Art pop",
-            "Rock & roll": "Rock and roll",
-            "Rock n roll": "Rock and roll",
-            "Rock'n'roll": "Rock and roll",
-            "Rock 'n' roll": "Rock and roll",
-            "Goth ": "Gothic ",
-            "-influenced": "",
-            '"': "",
-            "  ": " ",
+            "r & b": "r&b",
+            "rnb": "r&b",
+            "Alt ": "alternative ",
+            "Alt.": "alternative ",
+            "rock & roll": "rock and roll",
+            "rock n roll": "rock and roll",
+            "rock'n'roll": "rock and roll",
+            "rock 'n' roll": "rock and roll",
         }
-        whole_word_substitution = {
-            "Alt": "Alternative",
-            "Goth": "Gothic",
-        }
-        for i in range(len(self.band_genre)):
-            for old, new in subtitution.items():
-                if old in self.band_genre[i]:
-                    self.band_genre[i] = self.band_genre[i].replace(old, new)
-                if old.lower() in self.band_genre[i].lower():
-                    self.band_genre[i] = (
-                        self.band_genre[i].replace(old, new).replace(old.lower(), new)
-                    )
-            for old, new in whole_word_substitution.items():
-                if self.band_genre[i] == old:
-                    self.band_genre[i] = new
+        for old, new in substitution.items():
+            if old in genre_str:
+                genre_str = genre_str.replace(old, new)
+        return genre_str
+
+    def clean_genre(self) -> "Event":
+        self.band_genre = [self._clean_genre_str(g) for g in self.band_genre]
+        self.detailed_genre = [self._clean_genre_str(g) for g in self.detailed_genre]
         self.band_genre = list(set(self.band_genre))
-        for genre in self.band_genre:
-            if "Not a band" in genre or "Not a musical band" in genre:
-                self.band_genre.remove(genre)
-        for i, genre in enumerate(self.band_genre):
-            if "genre-blending" in genre.lower():
-                self.band_genre[i] = "Genre-blending"
+        self.detailed_genre = list(set(self.detailed_genre))
         return self
 
 
@@ -135,12 +92,7 @@ class EventDB(BaseModel):
             )
 
     def remove_prior_events(self) -> None:
-        for event in self.events:
-            if self.event_is_past(event):
-                logger.info(
-                    f"Event {event.link} is a past event and will be removed from the database."
-                )
-                self.events.remove(event)
+        self.events = [event for event in self.events if not self.event_is_past(event)]
 
     def event_is_past(self, event: Event) -> bool:
         current_month = time.localtime().tm_mon
@@ -151,12 +103,14 @@ class EventDB(BaseModel):
             )
             return False
         if event.numerical_month < current_month:
+            logger.info(f"Event {event.link} is a past event. Its on {event.numerical_month}, {event.numerical_date}.")
             return True
         if (
             event.numerical_month == current_month
             and event.numerical_date < current_date
         ):
-            return True
+            logger.info(f"Event {event.link} is a past event. Its on {event.numerical_month}, {event.numerical_date}.")
+            return True 
         return False
 
     def save_to_file(self, file_path: str) -> None:
