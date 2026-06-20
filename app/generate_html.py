@@ -5,6 +5,8 @@ from .models import Event
 
 
 def generate_html(events: list[Event], path: str, area: str) -> None:
+    page_size = 20
+
     sorted_events = sorted(
         events,
         key=lambda event: (
@@ -447,7 +449,7 @@ def generate_html(events: list[Event], path: str, area: str) -> None:
             border-left: 4px solid var(--ash-blue);
             border-radius: 18px;
             padding: 22px;
-            margin-bottom: 30px;
+            margin-bottom: 24px;
             box-shadow:
                 0 16px 36px rgba(52, 43, 34, 0.10),
                 inset 0 1px 0 rgba(255, 255, 255, 0.55);
@@ -652,6 +654,49 @@ def generate_html(events: list[Event], path: str, area: str) -> None:
         .clear-button {{
             background: rgba(255, 252, 246, 0.8);
             color: var(--muted-ink);
+        }}
+
+        .pagination {{
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 12px;
+            margin: 24px 0 30px;
+            flex-wrap: wrap;
+        }}
+
+        .pagination.hidden {{
+            display: none;
+        }}
+
+        .pagination-button {{
+            appearance: none;
+            border: 1px solid var(--border-dark);
+            border-radius: 999px;
+            background: rgba(248, 241, 231, 0.9);
+            color: var(--sepia-dark);
+            padding: 8px 14px;
+            font-family: Georgia, "Times New Roman", Times, serif;
+            font-size: 0.86rem;
+            font-weight: 700;
+            cursor: pointer;
+        }}
+
+        .pagination-button:hover:not(:disabled) {{
+            background: #ece1d2;
+            color: var(--wine);
+            border-color: var(--wine);
+        }}
+
+        .pagination-button:disabled {{
+            cursor: not-allowed;
+            opacity: 0.45;
+        }}
+
+        .page-info {{
+            color: var(--soft-ink);
+            font-size: 0.9rem;
+            font-style: italic;
         }}
 
         .event-grid {{
@@ -890,49 +935,6 @@ def generate_html(events: list[Event], path: str, area: str) -> None:
             font-style: italic;
         }}
 
-        .pagination {{
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            gap: 12px;
-            margin-top: 30px;
-            flex-wrap: wrap;
-        }}
-
-        .pagination.hidden {{
-            display: none;
-        }}
-
-        .pagination-button {{
-            appearance: none;
-            border: 1px solid var(--border-dark);
-            border-radius: 999px;
-            background: rgba(248, 241, 231, 0.9);
-            color: var(--sepia-dark);
-            padding: 8px 14px;
-            font-family: Georgia, "Times New Roman", Times, serif;
-            font-size: 0.86rem;
-            font-weight: 700;
-            cursor: pointer;
-        }}
-
-        .pagination-button:hover:not(:disabled) {{
-            background: #ece1d2;
-            color: var(--wine);
-            border-color: var(--wine);
-        }}
-
-        .pagination-button:disabled {{
-            cursor: not-allowed;
-            opacity: 0.45;
-        }}
-
-        .page-info {{
-            color: var(--soft-ink);
-            font-size: 0.9rem;
-            font-style: italic;
-        }}
-
         .empty-state {{
             display: none;
             margin-top: 32px;
@@ -1146,31 +1148,57 @@ def generate_html(events: list[Event], path: str, area: str) -> None:
             </div>
         </section>
 
-        <section class="event-grid" id="event-grid">
-            {events_html}
-        </section>
-
         <nav
             class="pagination"
-            id="pagination"
+            id="top-pagination"
             aria-label="Event pages"
         >
             <button
                 class="pagination-button"
                 type="button"
-                id="prev-page"
+                data-page-action="prev"
             >
                 Previous
             </button>
 
-            <span class="page-info" id="page-info">
+            <span class="page-info">
                 Page 1 of 1
             </span>
 
             <button
                 class="pagination-button"
                 type="button"
-                id="next-page"
+                data-page-action="next"
+            >
+                Next
+            </button>
+        </nav>
+
+        <section class="event-grid" id="event-grid">
+            {events_html}
+        </section>
+
+        <nav
+            class="pagination"
+            id="bottom-pagination"
+            aria-label="Event pages"
+        >
+            <button
+                class="pagination-button"
+                type="button"
+                data-page-action="prev"
+            >
+                Previous
+            </button>
+
+            <span class="page-info">
+                Page 1 of 1
+            </span>
+
+            <button
+                class="pagination-button"
+                type="button"
+                data-page-action="next"
             >
                 Next
             </button>
@@ -1182,6 +1210,8 @@ def generate_html(events: list[Event], path: str, area: str) -> None:
     </main>
 
     <script>
+        const PAGE_SIZE = {page_size};
+
         const filterButtons = Array.from(
             document.querySelectorAll(".filter-chip")
         );
@@ -1203,24 +1233,15 @@ def generate_html(events: list[Event], path: str, area: str) -> None:
         const filteredCount =
             document.getElementById("filtered-count");
 
-        const pagination =
-            document.getElementById("pagination");
-
-        const prevPageButton =
-            document.getElementById("prev-page");
-
-        const nextPageButton =
-            document.getElementById("next-page");
-
-        const pageInfo =
-            document.getElementById("page-info");
-
         const emptyState =
             document.getElementById("empty-state");
 
-        const pageSize = 100;
+        const paginations = Array.from(
+            document.querySelectorAll(".pagination")
+        );
 
         let currentPage = 1;
+        let selectedMustSeeFilter = "all";
 
         const filterState = {{
             genre: {{
@@ -1232,8 +1253,6 @@ def generate_html(events: list[Event], path: str, area: str) -> None:
                 excluded: new Set(),
             }},
         }};
-
-        let selectedMustSeeFilter = "all";
 
         function parseGenres(value) {{
             if (!value) {{
@@ -1281,23 +1300,37 @@ def generate_html(events: list[Event], path: str, area: str) -> None:
         }}
 
         function cardMatchesActiveFilters(card) {{
-            const matchesGenre =
-                matchesFilterType(card, "genre");
+            return (
+                matchesFilterType(card, "genre") &&
+                matchesFilterType(card, "detailed-genre") &&
+                matchesMustSeeFilter(card)
+            );
+        }}
 
-            const matchesDetailedGenre =
-                matchesFilterType(
-                    card,
-                    "detailed-genre"
+        function updatePagination(totalPages, totalMatching) {{
+            paginations.forEach((pagination) => {{
+                const prevButton = pagination.querySelector(
+                    '[data-page-action="prev"]'
                 );
 
-            const matchesMustSee =
-                matchesMustSeeFilter(card);
+                const nextButton = pagination.querySelector(
+                    '[data-page-action="next"]'
+                );
 
-            return (
-                matchesGenre &&
-                matchesDetailedGenre &&
-                matchesMustSee
-            );
+                const pageInfo =
+                    pagination.querySelector(".page-info");
+
+                pagination.classList.toggle(
+                    "hidden",
+                    totalMatching <= PAGE_SIZE
+                );
+
+                prevButton.disabled = currentPage <= 1;
+                nextButton.disabled = currentPage >= totalPages;
+
+                pageInfo.textContent =
+                    `Page ${{currentPage}} of ${{totalPages}}`;
+            }});
         }}
 
         function updateEvents(resetPage = false) {{
@@ -1312,18 +1345,22 @@ def generate_html(events: list[Event], path: str, area: str) -> None:
 
             const totalPages = Math.max(
                 1,
-                Math.ceil(totalMatching / pageSize)
+                Math.ceil(totalMatching / PAGE_SIZE)
             );
 
             if (currentPage > totalPages) {{
                 currentPage = totalPages;
             }}
 
+            if (currentPage < 1) {{
+                currentPage = 1;
+            }}
+
             const startIndex =
-                (currentPage - 1) * pageSize;
+                (currentPage - 1) * PAGE_SIZE;
 
             const endIndex =
-                startIndex + pageSize;
+                startIndex + PAGE_SIZE;
 
             const pageCards =
                 matchingCards.slice(startIndex, endIndex);
@@ -1344,19 +1381,7 @@ def generate_html(events: list[Event], path: str, area: str) -> None:
                 totalMatching === 0
             );
 
-            pagination.classList.toggle(
-                "hidden",
-                totalMatching <= pageSize
-            );
-
-            pageInfo.textContent =
-                `Page ${{currentPage}} of ${{totalPages}}`;
-
-            prevPageButton.disabled =
-                currentPage <= 1;
-
-            nextPageButton.disabled =
-                currentPage >= totalPages;
+            updatePagination(totalPages, totalMatching);
         }}
 
         function getPairedButton(
@@ -1472,13 +1497,8 @@ def generate_html(events: list[Event], path: str, area: str) -> None:
             selectedMustSeeFilter = "all";
 
             filterButtons.forEach((button) => {{
-                button.classList.remove(
-                    "include-active"
-                );
-
-                button.classList.remove(
-                    "exclude-active"
-                );
+                button.classList.remove("include-active");
+                button.classList.remove("exclude-active");
             }});
 
             mustSeeButtons.forEach((button) => {{
@@ -1491,25 +1511,35 @@ def generate_html(events: list[Event], path: str, area: str) -> None:
             updateEvents(true);
         }});
 
-        prevPageButton.addEventListener("click", () => {{
-            if (currentPage > 1) {{
-                currentPage -= 1;
-                updateEvents();
+        paginations.forEach((pagination) => {{
+            pagination.addEventListener("click", (event) => {{
+                const button = event.target.closest("button");
 
-                window.scrollTo({{
-                    top: 0,
-                    behavior: "smooth",
-                }});
-            }}
-        }});
+                if (!button || button.disabled) {{
+                    return;
+                }}
 
-        nextPageButton.addEventListener("click", () => {{
-            currentPage += 1;
-            updateEvents();
+                const action = button.dataset.pageAction;
 
-            window.scrollTo({{
-                top: 0,
-                behavior: "smooth",
+                if (action === "prev" && currentPage > 1) {{
+                    currentPage -= 1;
+                    updateEvents();
+
+                    window.scrollTo({{
+                        top: 0,
+                        behavior: "smooth",
+                    }});
+                }}
+
+                if (action === "next") {{
+                    currentPage += 1;
+                    updateEvents();
+
+                    window.scrollTo({{
+                        top: 0,
+                        behavior: "smooth",
+                    }});
+                }}
             }});
         }});
 
