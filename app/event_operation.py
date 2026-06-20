@@ -18,6 +18,8 @@ async def get_bands_details_async(
     max_concurrent: int = 20,
 ) -> List[Event]:
     semaphore = asyncio.Semaphore(max_concurrent)
+    # skip all past event
+    events = [event for event in events if not event.is_past_event()]
 
     async def fetch_details(event: Event) -> Event:
         async with semaphore:

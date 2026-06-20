@@ -19,6 +19,7 @@ def run_job(args: argparse.Namespace) -> None:
         logger.info("HTML file has been read and parsed successfully.")
         events.extend(extract_live_music_data(soup))
         logger.info("Live music data has been extracted successfully.")
+    
     events = asyncio.run(
         get_bands_details_async(
             events, args.OPENAI_API_KEY, args.even_db_path, args.area

@@ -63,6 +63,25 @@ class Event(BaseModel):
         self.band_genre = list(set(self.band_genre))
         self.detailed_genre = list(set(self.detailed_genre))
         return self
+    
+    def is_past_event(self) -> bool:
+        current_month = time.localtime().tm_mon
+        current_date = time.localtime().tm_mday
+        if self.numerical_month is None or self.numerical_date is None:
+            logger.warning(
+                f"Event {self.link} does not have numerical month or date. Cannot determine if it's a past event."
+            )
+            return False
+        if self.numerical_month < current_month:
+            logger.info(f"Event {self.link} is a past event. Its on {self.numerical_month}, {self.numerical_date}.")
+            return True
+        if (
+            self.numerical_month == current_month
+            and self.numerical_date < current_date
+        ):
+            logger.info(f"Event {self.link} is a past event. Its on {self.numerical_month}, {self.numerical_date}.")
+            return True 
+        return False
 
 
 class EventDB(BaseModel):
