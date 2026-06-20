@@ -890,6 +890,49 @@ def generate_html(events: list[Event], path: str, area: str) -> None:
             font-style: italic;
         }}
 
+        .pagination {{
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 12px;
+            margin-top: 30px;
+            flex-wrap: wrap;
+        }}
+
+        .pagination.hidden {{
+            display: none;
+        }}
+
+        .pagination-button {{
+            appearance: none;
+            border: 1px solid var(--border-dark);
+            border-radius: 999px;
+            background: rgba(248, 241, 231, 0.9);
+            color: var(--sepia-dark);
+            padding: 8px 14px;
+            font-family: Georgia, "Times New Roman", Times, serif;
+            font-size: 0.86rem;
+            font-weight: 700;
+            cursor: pointer;
+        }}
+
+        .pagination-button:hover:not(:disabled) {{
+            background: #ece1d2;
+            color: var(--wine);
+            border-color: var(--wine);
+        }}
+
+        .pagination-button:disabled {{
+            cursor: not-allowed;
+            opacity: 0.45;
+        }}
+
+        .page-info {{
+            color: var(--soft-ink);
+            font-size: 0.9rem;
+            font-style: italic;
+        }}
+
         .empty-state {{
             display: none;
             margin-top: 32px;
@@ -1024,8 +1067,10 @@ def generate_html(events: list[Event], path: str, area: str) -> None:
 
                 <p class="result-count">
                     Showing
-                    <span id="visible-count">{len(sorted_events)}</span>
-                    of {len(sorted_events)}
+                    <span id="visible-count">0</span>
+                    of
+                    <span id="filtered-count">{len(sorted_events)}</span>
+                    matching events
                 </p>
             </div>
 
@@ -1105,6 +1150,32 @@ def generate_html(events: list[Event], path: str, area: str) -> None:
             {events_html}
         </section>
 
+        <nav
+            class="pagination"
+            id="pagination"
+            aria-label="Event pages"
+        >
+            <button
+                class="pagination-button"
+                type="button"
+                id="prev-page"
+            >
+                Previous
+            </button>
+
+            <span class="page-info" id="page-info">
+                Page 1 of 1
+            </span>
+
+            <button
+                class="pagination-button"
+                type="button"
+                id="next-page"
+            >
+                Next
+            </button>
+        </nav>
+
         <div class="empty-state" id="empty-state">
             No events match the selected filters.
         </div>
@@ -1129,8 +1200,27 @@ def generate_html(events: list[Event], path: str, area: str) -> None:
         const visibleCount =
             document.getElementById("visible-count");
 
+        const filteredCount =
+            document.getElementById("filtered-count");
+
+        const pagination =
+            document.getElementById("pagination");
+
+        const prevPageButton =
+            document.getElementById("prev-page");
+
+        const nextPageButton =
+            document.getElementById("next-page");
+
+        const pageInfo =
+            document.getElementById("page-info");
+
         const emptyState =
             document.getElementById("empty-state");
+
+        const pageSize = 100;
+
+        let currentPage = 1;
 
         const filterState = {{
             genre: {{
@@ -1190,43 +1280,83 @@ def generate_html(events: list[Event], path: str, area: str) -> None:
             return card.dataset.mustSee === selectedMustSeeFilter;
         }}
 
-        function updateEvents() {{
-            let shown = 0;
+        function cardMatchesActiveFilters(card) {{
+            const matchesGenre =
+                matchesFilterType(card, "genre");
 
-            cards.forEach((card) => {{
-                const matchesGenre =
-                    matchesFilterType(card, "genre");
-
-                const matchesDetailedGenre =
-                    matchesFilterType(
-                        card,
-                        "detailed-genre"
-                    );
-
-                const matchesMustSee =
-                    matchesMustSeeFilter(card);
-
-                const shouldShow =
-                    matchesGenre &&
-                    matchesDetailedGenre &&
-                    matchesMustSee;
-
-                card.classList.toggle(
-                    "hidden",
-                    !shouldShow
+            const matchesDetailedGenre =
+                matchesFilterType(
+                    card,
+                    "detailed-genre"
                 );
 
-                if (shouldShow) {{
-                    shown += 1;
-                }}
+            const matchesMustSee =
+                matchesMustSeeFilter(card);
+
+            return (
+                matchesGenre &&
+                matchesDetailedGenre &&
+                matchesMustSee
+            );
+        }}
+
+        function updateEvents(resetPage = false) {{
+            if (resetPage) {{
+                currentPage = 1;
+            }}
+
+            const matchingCards =
+                cards.filter(cardMatchesActiveFilters);
+
+            const totalMatching = matchingCards.length;
+
+            const totalPages = Math.max(
+                1,
+                Math.ceil(totalMatching / pageSize)
+            );
+
+            if (currentPage > totalPages) {{
+                currentPage = totalPages;
+            }}
+
+            const startIndex =
+                (currentPage - 1) * pageSize;
+
+            const endIndex =
+                startIndex + pageSize;
+
+            const pageCards =
+                matchingCards.slice(startIndex, endIndex);
+
+            cards.forEach((card) => {{
+                card.classList.add("hidden");
             }});
 
-            visibleCount.textContent = shown;
+            pageCards.forEach((card) => {{
+                card.classList.remove("hidden");
+            }});
+
+            visibleCount.textContent = pageCards.length;
+            filteredCount.textContent = totalMatching;
 
             emptyState.classList.toggle(
                 "visible",
-                shown === 0
+                totalMatching === 0
             );
+
+            pagination.classList.toggle(
+                "hidden",
+                totalMatching <= pageSize
+            );
+
+            pageInfo.textContent =
+                `Page ${{currentPage}} of ${{totalPages}}`;
+
+            prevPageButton.disabled =
+                currentPage <= 1;
+
+            nextPageButton.disabled =
+                currentPage >= totalPages;
         }}
 
         function getPairedButton(
@@ -1305,7 +1435,7 @@ def generate_html(events: list[Event], path: str, area: str) -> None:
                     }}
                 }}
 
-                updateEvents();
+                updateEvents(true);
             }});
         }});
 
@@ -1327,7 +1457,7 @@ def generate_html(events: list[Event], path: str, area: str) -> None:
                     );
                 }});
 
-                updateEvents();
+                updateEvents(true);
             }});
         }});
 
@@ -1358,7 +1488,29 @@ def generate_html(events: list[Event], path: str, area: str) -> None:
                 );
             }});
 
+            updateEvents(true);
+        }});
+
+        prevPageButton.addEventListener("click", () => {{
+            if (currentPage > 1) {{
+                currentPage -= 1;
+                updateEvents();
+
+                window.scrollTo({{
+                    top: 0,
+                    behavior: "smooth",
+                }});
+            }}
+        }});
+
+        nextPageButton.addEventListener("click", () => {{
+            currentPage += 1;
             updateEvents();
+
+            window.scrollTo({{
+                top: 0,
+                behavior: "smooth",
+            }});
         }});
 
         updateEvents();
