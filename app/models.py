@@ -1,10 +1,28 @@
-from pydantic import BaseModel
-from typing import Optional, List
+from datetime import datetime
+from typing import Literal, Optional
+
+from pydantic import BaseModel, Field
 import time
 import os
 import logging
+import re
 
 logger = logging.getLogger(__name__)
+
+_MONTHS = {
+    name: number
+    for number, names in enumerate(
+        [
+            (),
+            ("jan", "january"), ("feb", "february"), ("mar", "march"),
+            ("apr", "april"), ("may",), ("jun", "june"),
+            ("jul", "july"), ("aug", "august"), ("sep", "sept", "september"),
+            ("oct", "october"), ("nov", "november"), ("dec", "december"),
+        ]
+    )
+    for name in names
+}
+_EVENT_DATE = re.compile(r"\b([A-Za-z]+)\s+(\d{1,2})(?:st|nd|rd|th)?\b")
 
 
 class Event(BaseModel):
@@ -14,19 +32,29 @@ class Event(BaseModel):
     date: str  # e.g. May 12 - 2:00 PM
     numerical_month: Optional[int] = None
     numerical_date: Optional[int] = None
-    band_genre: list[str] = []
+    band_genre: list[str] = Field(default_factory=list)
     must_see: Optional[bool] = None
-    detailed_genre: list[str] = []
+    detailed_genre: list[str] = Field(default_factory=list)
     band_info: str = ""
     band_details_trustworthy: Optional[bool] = None
+    recommendation_score: Optional[int] = Field(default=None, ge=0, le=100)
+    recommendation_reasons: list[str] = Field(default_factory=list)
+    research_confidence: Optional[Literal["low", "medium", "high"]] = None
+    research_status: Literal[
+        "not_researched", "verified", "partial", "not_found"
+    ] = "not_researched"
+    source_urls: list[str] = Field(default_factory=list)
+    researched_at: Optional[datetime] = None
+    model_used: Optional[str] = None
+    prompt_version: Optional[str] = None
+    schema_version: Optional[int] = None
 
     def compute_month_and_date(self) -> "Event":
-        month, date_time = self.date.split(" ", 1)
-        date = date_time.split(" ")[0]
-        numerical_month = time.strptime(month, "%b").tm_mon
-        numerical_date = int(date)
-        self.numerical_month = numerical_month
-        self.numerical_date = numerical_date
+        match = _EVENT_DATE.search(self.date)
+        if match is None or match.group(1).lower() not in _MONTHS:
+            raise ValueError(f"Unsupported event date format: {self.date!r}")
+        self.numerical_month = _MONTHS[match.group(1).lower()]
+        self.numerical_date = int(match.group(2))
         return self
 
     def clean_link(self) -> "Event":
@@ -86,7 +114,7 @@ class Event(BaseModel):
 
 class EventDB(BaseModel):
     # events are considered the same iff they have the same link
-    events: list[Event] = []
+    events: list[Event] = Field(default_factory=list)
 
     def clean_events(self) -> "EventDB":
         for event in self.events:
@@ -109,6 +137,13 @@ class EventDB(BaseModel):
             logger.info(
                 f"Event with link {event.link} already exists in the database. Skipping."
             )
+
+    def upsert_event(self, event: Event) -> None:
+        for index, existing in enumerate(self.events):
+            if existing.link == event.link:
+                self.events[index] = event
+                return
+        self.events.append(event)
 
     def remove_prior_events(self) -> None:
         self.events = [event for event in self.events if not self.event_is_past(event)]

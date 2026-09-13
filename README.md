@@ -10,6 +10,14 @@ Bandsintown lists a lot of live music events, but it can be hard to quickly unde
 
 This application uses an LLM with web access to look up artist information, including genre, background, and general style. It then combines that information with Bandsintown event data and generates a readable, filterable HTML page.
 
+The generated page also lets visitors search events by keyword, save events in
+their browser, filter to their shortlist, and export saved events as JSON.
+Visitors can also choose an automatic layout or display one to four events per
+row; that preference is saved in their browser.
+Because the site is static,
+saved events are specific to the current browser and GitHub Pages domain; they
+do not automatically sync between devices.
+
 > **Note:** Artist genres and descriptions are generated from online sources and may be inaccurate or incomplete. Please double-check important details before making plans.
 
 ## Installation
@@ -35,7 +43,7 @@ pip install ./
 7. Run the tool:
 
     ```bash
-    music-finder --area <your area, e.g. Austin, TX>
+    music-finder --area <your area, e.g. Pittsburgh, PA>
     ```
 
 8. Open the generated result:
@@ -52,8 +60,21 @@ To see all available options, run:
 music-finder -h
 ```
 
+Use a different OpenAI model for uncached event enrichment with:
+
+```bash
+music-finder --area "Pittsburgh, PA" --model gpt-5.6-luna
+```
+
+The model can also be set with the `OPENAI_MODEL` environment variable.
+
+Each run writes detailed token usage to `.asset/usage_report.json`, including
+cached input, cache-write input, reasoning, visible output, totals, web-search
+calls, and averages per enriched and parsed event. Use `--usage-report-path` to
+choose another location.
+
 ## Example
 
-music-finder --area "Austin, TX"
+music-finder --area "Pittsburgh, PA"
 
 This reads event data from `.asset/bandsintown.html` and generates a filterable HTML guide at `.asset/generated_page.html`.
