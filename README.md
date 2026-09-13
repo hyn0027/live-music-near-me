@@ -2,8 +2,6 @@
 
 A small tool that turns Bandsintown event listings into a readable, filterable local music guide.
 
-> **Note:** Parts of this project were vibe-coded. Please review the code carefully for security issues before using it with sensitive data, API keys, or untrusted HTML.
-
 ## What it does
 
 Bandsintown lists a lot of live music events, but it can be hard to quickly understand what an unfamiliar artist or band sounds like. Looking up every artist manually takes time.
@@ -23,7 +21,7 @@ do not automatically sync between devices.
 ## Installation
 
 ```bash
-pip install ./
+pip install -e ./
 ```
 
 ## Usage
@@ -32,18 +30,13 @@ pip install ./
 2. Choose the date you want to search.
 3. Scroll down the page and click View All until all events are loaded.
 4. Right-click the page, choose Inspect, and copy the full HTML.
-5. Save the copied HTML here:
-
-    ```plain text
-    .asset/bandsintown.html
-    ```
-
+5. Save the copied HTML to a file.
 6. Create an OpenAI API key and add it to a `.env` file. See `.env.example` for the expected format.
-    Running this tool may incur API costs. Keep your API key private and do not commit it to a public repository.
+    Running this tool may incur API costs. Keep your API key private and do not commit it to a public repository. To control your cost per run, use `--max-api-calls <number>`. You can review token usage report at `.asset/usage_report.json` after each run.
 7. Run the tool:
 
     ```bash
-    music-finder --area <your area, e.g. Pittsburgh, PA>
+    music-finder --path <path to your saved HTML> --area <your area, e.g. Pittsburgh, PA> --max-api-calls <number of max API call>
     ```
 
 8. Open the generated result:
@@ -60,13 +53,11 @@ To see all available options, run:
 music-finder -h
 ```
 
-Use a different OpenAI model for uncached event enrichment with:
+Use a different OpenAI model with:
 
 ```bash
-music-finder --area "Pittsburgh, PA" --model gpt-5.6-luna
+music-finder --model <model name, such as gpt-5.6-luna>
 ```
-
-The model can also be set with the `OPENAI_MODEL` environment variable.
 
 Each run writes detailed token usage to `.asset/usage_report.json`, including
 cached input, cache-write input, reasoning, visible output, totals, web-search
@@ -75,6 +66,8 @@ choose another location.
 
 ## Example
 
-music-finder --area "Pittsburgh, PA"
+```bash
+music-finder --overwrite_log_file --path ".asset/bandsintown.html" --max-api-calls 1000
+```
 
 This reads event data from `.asset/bandsintown.html` and generates a filterable HTML guide at `.asset/generated_page.html`.
