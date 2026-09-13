@@ -1,5 +1,5 @@
 {% set event = item.event %}
-<article class="event-card" data-event-id="{{ event.link }}" data-band="{{ event.band }}" data-venue="{{ event.venue }}" data-date="{{ event.date }}" data-genres="{{ item.genres_data }}" data-detailed-genres="{{ item.detailed_genres_data }}" data-must-see="{{ item.must_see_data }}">
+<article class="event-card" data-event-id="{{ event.link }}" data-band="{{ event.band }}" data-venue="{{ event.venue }}" data-date="{{ event.date }}" data-genres="{{ item.genres_data }}" data-detailed-genres="{{ item.detailed_genres_data }}" data-must-see="{{ item.must_see_data }}" data-score="{{ event.recommendation_score if event.recommendation_score is not none else '' }}" data-confidence="{{ event.research_confidence or '' }}">
   <div class="event-header">
     <h2>{{ event.band }}</h2>
     <div class="event-actions">
@@ -9,9 +9,9 @@
   </div>
   <p class="venue">{{ event.venue }}</p>
   <div class="event-meta">
-    {% if event.must_see is true %}<span class="badge badge-yes">★ Must-see · {{ event.recommendation_score }}/100</span>
-    {% elif event.recommendation_score is not none %}<span class="badge badge-no">Score {{ event.recommendation_score }}/100</span>
-    {% else %}<span class="badge badge-unknown">Not researched</span>{% endif %}
+    {% if event.must_see is true %}<span class="badge badge-yes" data-score-badge>★ Must-see · {{ event.recommendation_score }}/100</span>
+    {% elif event.recommendation_score is not none %}<span class="badge badge-no" data-score-badge>Score {{ event.recommendation_score }}/100</span>
+    {% else %}<span class="badge badge-unknown" data-score-badge>Not researched</span>{% endif %}
     <span class="date">☽ {{ event.date }}</span>
   </div>
   <section class="genre-section">

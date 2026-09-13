@@ -12,15 +12,56 @@ const exportSavedButton = document.querySelector("#export-saved");
 const searchInput = document.querySelector("#event-search");
 const eventGrid = document.querySelector("#event-grid");
 const columnsSelect = document.querySelector("#events-per-row");
+const mustSeeThresholdInput = document.querySelector("#must-see-threshold");
+const mustSeeThresholdValue = document.querySelector("#must-see-threshold-value");
 
 const SAVED_EVENTS_KEY = "live-music-near-me:saved-events:v1";
 const COLUMNS_KEY = "live-music-near-me:columns:v1";
+const MUST_SEE_THRESHOLD_KEY = "live-music-near-me:must-see-threshold:v1";
+const DEFAULT_MUST_SEE_THRESHOLD = 80;
 
 let currentPage = 1;
 let selectedMustSee = "all";
 let showSavedOnly = false;
 let searchTerms = [];
 let savedEventIds = loadSavedEventIds();
+let mustSeeThreshold = loadMustSeeThreshold();
+
+function loadMustSeeThreshold() {
+  try {
+    const value = Number(localStorage.getItem(MUST_SEE_THRESHOLD_KEY));
+    return Number.isInteger(value) && value >= 0 && value <= 100
+      ? value
+      : DEFAULT_MUST_SEE_THRESHOLD;
+  } catch (error) {
+    console.warn("Could not load the must-see threshold", error);
+    return DEFAULT_MUST_SEE_THRESHOLD;
+  }
+}
+
+function mustSeeStatus(card) {
+  if (card.dataset.score === "") return "unknown";
+  const isMustSee = Number(card.dataset.score) >= mustSeeThreshold
+    && card.dataset.confidence === "high";
+  return String(isMustSee);
+}
+
+function updateMustSeeBadges() {
+  mustSeeThresholdInput.value = String(mustSeeThreshold);
+  mustSeeThresholdValue.value = String(mustSeeThreshold);
+  for (const card of cards) {
+    const badge = card.querySelector("[data-score-badge]");
+    const status = mustSeeStatus(card);
+    badge.classList.toggle("badge-yes", status === "true");
+    badge.classList.toggle("badge-no", status === "false");
+    badge.classList.toggle("badge-unknown", status === "unknown");
+    badge.textContent = status === "unknown"
+      ? "Not researched"
+      : status === "true"
+        ? `★ Must-see · ${card.dataset.score}/100`
+        : `Score ${card.dataset.score}/100`;
+  }
+}
 
 function loadColumnPreference() {
   try {
@@ -78,7 +119,7 @@ function persistSavedEventIds() {
 }
 
 function matches(card) {
-  const matchesMustSee = selectedMustSee === "all" || card.dataset.mustSee === selectedMustSee;
+  const matchesMustSee = selectedMustSee === "all" || mustSeeStatus(card) === selectedMustSee;
   const matchesSaved = !showSavedOnly || savedEventIds.has(card.dataset.eventId);
   const searchableText = card.textContent.toLocaleLowerCase();
   const matchesSearch = searchTerms.every((term) => searchableText.includes(term));
@@ -174,6 +215,17 @@ searchInput.addEventListener("input", () => {
 
 columnsSelect.addEventListener("change", () => setColumns(columnsSelect.value));
 
+mustSeeThresholdInput.addEventListener("input", () => {
+  mustSeeThreshold = Number(mustSeeThresholdInput.value);
+  try {
+    localStorage.setItem(MUST_SEE_THRESHOLD_KEY, String(mustSeeThreshold));
+  } catch (error) {
+    console.warn("Could not save the must-see threshold", error);
+  }
+  updateMustSeeBadges();
+  updateEvents(true);
+});
+
 exportSavedButton.addEventListener("click", () => {
   const events = cards
     .filter((card) => savedEventIds.has(card.dataset.eventId))
@@ -217,5 +269,6 @@ paginations.forEach((pagination) => pagination.addEventListener("click", (event)
 }));
 
 updateSavedControls();
+updateMustSeeBadges();
 setColumns(loadColumnPreference());
 updateEvents();

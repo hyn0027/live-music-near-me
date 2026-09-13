@@ -34,10 +34,17 @@
         {% for genre in genres %}{% include "filter_chip.html" %}{% else %}<span class="muted">No filters available</span>{% endfor %}
       </div>
       <h3>Must-see</h3>
-      <div class="filter-row" role="group" aria-label="Must-see filter">
-        {% for value, label in [("all", "All"), ("true", "★ Must-see"), ("false", "Not must-see"), ("unknown", "Not rated")] %}
-          <button class="must-see-filter{{ ' active' if value == 'all' }}" type="button" data-must-see-filter="{{ value }}">{{ label }}</button>
-        {% endfor %}
+      <div class="must-see-controls">
+        <div class="filter-row" role="group" aria-label="Must-see filter">
+          {% for value, label in [("all", "All"), ("true", "★ Must-see"), ("false", "Not must-see"), ("unknown", "Not rated")] %}
+            <button class="must-see-filter{{ ' active' if value == 'all' }}" type="button" data-must-see-filter="{{ value }}">{{ label }}</button>
+          {% endfor %}
+        </div>
+        <label class="threshold-control" for="must-see-threshold">
+          Minimum score
+          <input id="must-see-threshold" type="range" min="0" max="100" step="1" value="80">
+          <output id="must-see-threshold-value" for="must-see-threshold">80</output>
+        </label>
       </div>
       <h3>Shortlist</h3>
       <div class="filter-row shortlist-actions">
