@@ -1,16 +1,14 @@
 import argparse
 import logging
 import os
-from typing import Union
+
 from dotenv import load_dotenv
+
 from .core import run_job
 
 
 def initialize_environment() -> None:
     load_dotenv(override=True)
-    OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-    if not OPENAI_API_KEY:
-        raise ValueError("OPENAI_API_KEY is not set in the environment variables.")
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -42,10 +40,28 @@ def build_parser() -> argparse.ArgumentParser:
         help="Logging level (e.g., DEBUG, INFO, WARNING, ERROR, CRITICAL)",
     )
     parser.add_argument(
+        "--openai-api-key",
         "--OPENAI_API_KEY",
+        dest="openai_api_key",
         type=str,
         default=os.getenv("OPENAI_API_KEY"),
         help="OpenAI API key (can also be set via environment variable OPENAI_API_KEY)",
+    )
+    parser.add_argument(
+        "--max-api-calls",
+        type=int,
+        default=50,
+        help="Maximum uncached events to enrich; remaining events are included without enrichment (default: 50)",
+    )
+    parser.add_argument(
+        "--model",
+        default=os.getenv("OPENAI_MODEL", "gpt-5.6-luna"),
+        help="OpenAI model used to enrich uncached events (default: gpt-5.6-luna)",
+    )
+    parser.add_argument(
+        "--usage-report-path",
+        default=".asset/usage_report.json",
+        help="Path for detailed per-run token usage (default: .asset/usage_report.json)",
     )
     parser.add_argument(
         "--even_db_path",
@@ -56,7 +72,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--area",
         type=str,
-        default="Austin, TX",
+        default="Pittsburgh, PA",
         help="Area for which to fetch live music events (e.g., 'Pittsburgh, PA')",
     )
 
@@ -87,9 +103,13 @@ def main() -> None:
     initialize_environment()
     parser = build_parser()
     args = parser.parse_args()
+    if not args.openai_api_key:
+        parser.error("an OpenAI API key is required")
+    if args.max_api_calls < 0:
+        parser.error("--max-api-calls must be zero or greater")
     configure_logging(args)
-    logging.info("Starting the application with the following configuration:")
-    logging.info(f"args: {args}")
+    safe_args = vars(args) | {"openai_api_key": "<redacted>"}
+    logging.info("Starting the application with configuration: %s", safe_args)
     run_job(args)
 
 

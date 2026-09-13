@@ -10,9 +10,11 @@ readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
     "beautifulsoup4>=4.14.0",
+    "jinja2>=3.1.0",
     "pydantic>=2.13.0",
     "python-dotenv>=1.2.0",
     "openai>=2.30.0",
+    "tqdm>=4.67.0",
 ]
 
 [project.scripts]
@@ -21,3 +23,6 @@ music-finder = "app.cli:main"
 [tool.setuptools.packages.find] 
 where = ["."]
 include = ["app*"]
+
+[tool.setuptools.package-data]
+app = ["templates/*.html", "templates/*.css", "templates/*.js"]

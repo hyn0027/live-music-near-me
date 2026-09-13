@@ -1,0 +1,42 @@
+{% set event = item.event %}
+<article class="event-card" data-event-id="{{ event.link }}" data-band="{{ event.band }}" data-venue="{{ event.venue }}" data-date="{{ event.date }}" data-genres="{{ item.genres_data }}" data-detailed-genres="{{ item.detailed_genres_data }}" data-must-see="{{ item.must_see_data }}">
+  <div class="event-header">
+    <h2>{{ event.band }}</h2>
+    <div class="event-actions">
+      <button class="save-event" type="button" aria-pressed="false">♡ Save</button>
+      <a class="event-link" href="{{ event.link }}" target="_blank" rel="noopener noreferrer">View event</a>
+    </div>
+  </div>
+  <p class="venue">{{ event.venue }}</p>
+  <div class="event-meta">
+    {% if event.must_see is true %}<span class="badge badge-yes">★ Must-see · {{ event.recommendation_score }}/100</span>
+    {% elif event.recommendation_score is not none %}<span class="badge badge-no">Score {{ event.recommendation_score }}/100</span>
+    {% else %}<span class="badge badge-unknown">Not researched</span>{% endif %}
+    <span class="date">☽ {{ event.date }}</span>
+  </div>
+  <section class="genre-section">
+    <h3>Genre</h3>
+    <div class="genres">{% for genre in event.band_genre if genre.strip() %}<span class="genre-tag">{{ genre.strip() }}</span>{% else %}<span class="muted">No genre info</span>{% endfor %}</div>
+  </section>
+  <section class="genre-section">
+    <h3>Detailed genre</h3>
+    <div class="genres">{% for genre in event.detailed_genre if genre.strip() %}<span class="genre-tag detailed-genre-tag">{{ genre.strip() }}</span>{% else %}<span class="muted">No detailed genre info</span>{% endfor %}</div>
+  </section>
+  <p class="band-info">{% if event.band_info.strip() %}{{ event.band_info }}{% else %}<span class="muted">No band info available</span>{% endif %}</p>
+  {% if event.recommendation_reasons or event.source_urls %}
+    <details class="research-details">
+      <summary>Why this score and sources</summary>
+      {% if event.recommendation_reasons %}
+        <ul>{% for reason in event.recommendation_reasons %}<li>{{ reason }}</li>{% endfor %}</ul>
+      {% endif %}
+      {% if event.source_urls %}
+        <p class="source-links">Sources:
+          {% for url in event.source_urls %}<a href="{{ url }}" target="_blank" rel="noopener noreferrer">{{ loop.index }}</a>{% endfor %}
+        </p>
+      {% endif %}
+      <p class="research-meta">Status: {{ event.research_status|replace("_", " ") }} · Confidence: {{ event.research_confidence or "not rated" }}{% if event.model_used %} · Model: {{ event.model_used }}{% endif %}</p>
+    </details>
+  {% endif %}
+  {% if event.research_status == "not_found" %}<div class="warning">⚠️ The artist could not be identified reliably. No generated artist details are shown.</div>
+  {% elif event.band_details_trustworthy is false %}<div class="warning">⚠️ Research is incomplete or has limited confidence. Please verify it using the listed sources.</div>{% endif %}
+</article>

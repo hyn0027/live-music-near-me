@@ -1,0 +1,5 @@
+{% set filter_type = filter_type|default("genre") %}
+<span class="filter-chip-group">
+  <button class="filter-chip include-chip" type="button" data-filter-mode="include" data-filter-type="{{ filter_type }}" data-genre="{{ genre|lower }}" title="Include {{ genre }}">+ {{ genre }}</button>
+  <button class="filter-chip exclude-chip" type="button" data-filter-mode="exclude" data-filter-type="{{ filter_type }}" data-genre="{{ genre|lower }}" title="Exclude {{ genre }}" aria-label="Exclude {{ genre }}">−</button>
+</span>
