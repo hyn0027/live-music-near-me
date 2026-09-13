@@ -1,6 +1,7 @@
 from calendar import month_name
 from dataclasses import dataclass
 
+from .markdown_renderer import render_card_markdown
 from .models import Event
 
 
@@ -13,6 +14,8 @@ class EventView:
     genres_data: str
     detailed_genres_data: str
     must_see_data: str
+    band_info_html: str
+    recommendation_reasons_html: list[str]
 
 
 def _sort_key(event: Event) -> tuple[int, int, str]:
@@ -56,6 +59,10 @@ def _event_view(event: Event) -> EventView:
             genre.lower() for genre in _clean_genres(event.detailed_genre)
         ),
         must_see_data="unknown" if event.must_see is None else str(event.must_see).lower(),
+        band_info_html=render_card_markdown(event.band_info),
+        recommendation_reasons_html=[
+            render_card_markdown(reason) for reason in event.recommendation_reasons
+        ],
     )
 
 

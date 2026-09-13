@@ -22,12 +22,12 @@
     <h3>Detailed genre</h3>
     <div class="genres">{% for genre in event.detailed_genre if genre.strip() %}<span class="genre-tag detailed-genre-tag">{{ genre.strip() }}</span>{% else %}<span class="muted">No detailed genre info</span>{% endfor %}</div>
   </section>
-  <p class="band-info">{% if event.band_info.strip() %}{{ event.band_info }}{% else %}<span class="muted">No band info available</span>{% endif %}</p>
+  <div class="band-info">{% if event.band_info.strip() %}{{ item.band_info_html|safe }}{% else %}<span class="muted">No band info available</span>{% endif %}</div>
   {% if event.recommendation_reasons or event.source_urls %}
     <details class="research-details">
       <summary>Why this score and sources</summary>
       {% if event.recommendation_reasons %}
-        <ul>{% for reason in event.recommendation_reasons %}<li>{{ reason }}</li>{% endfor %}</ul>
+        <ul>{% for reason in item.recommendation_reasons_html %}<li>{{ reason|safe }}</li>{% endfor %}</ul>
       {% endif %}
       {% if event.source_urls %}
         <p class="source-links">Sources:

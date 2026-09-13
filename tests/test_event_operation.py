@@ -153,7 +153,7 @@ class GetBandDetailsTests(unittest.TestCase):
         self.assertTrue(enriched.must_see)
         self.assertEqual(enriched.recommendation_score, 88)
         self.assertEqual(enriched.source_urls, ["https://example.com/source"])
-        self.assertEqual(enriched.prompt_version, "event-research-v2")
+        self.assertEqual(enriched.prompt_version, PROMPT_VERSION)
         self.assertEqual(enriched.schema_version, 2)
 
         response.output_parsed = {
