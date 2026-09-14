@@ -3,6 +3,7 @@ from dataclasses import dataclass
 
 from .markdown_renderer import render_card_markdown
 from .models import Event
+from .url_sanitizer import sanitize_url
 
 
 PAGE_SIZE = 21
@@ -16,6 +17,7 @@ class EventView:
     must_see_data: str
     band_info_html: str
     recommendation_reasons_html: list[str]
+    source_urls: list[str]
 
 
 def _sort_key(event: Event) -> tuple[int, int, str]:
@@ -63,6 +65,7 @@ def _event_view(event: Event) -> EventView:
         recommendation_reasons_html=[
             render_card_markdown(reason) for reason in event.recommendation_reasons
         ],
+        source_urls=[sanitize_url(url) for url in event.source_urls],
     )
 
 

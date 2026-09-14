@@ -2,6 +2,8 @@ from bs4 import BeautifulSoup
 import bleach
 from markdown import markdown
 
+from .url_sanitizer import sanitize_url
+
 
 ALLOWED_TAGS = {"a", "blockquote", "br", "code", "em", "li", "ol", "p", "strong", "ul"}
 
@@ -18,6 +20,7 @@ def render_card_markdown(value: str) -> str:
     )
     soup = BeautifulSoup(cleaned, "html.parser")
     for link in soup.find_all("a"):
+        link["href"] = sanitize_url(link.get("href", ""))
         link["target"] = "_blank"
         link["rel"] = "noopener noreferrer"
     return str(soup)
