@@ -23,15 +23,15 @@
     <div class="genres">{% for genre in event.detailed_genre if genre.strip() %}<span class="genre-tag detailed-genre-tag">{{ genre.strip() }}</span>{% else %}<span class="muted">No detailed genre info</span>{% endfor %}</div>
   </section>
   <div class="band-info">{% if event.band_info.strip() %}{{ item.band_info_html|safe }}{% else %}<span class="muted">No band info available</span>{% endif %}</div>
-  {% if event.recommendation_reasons or event.source_urls %}
+  {% if event.recommendation_reasons or item.source_urls %}
     <details class="research-details">
       <summary>Why this score and sources</summary>
       {% if event.recommendation_reasons %}
         <ul>{% for reason in item.recommendation_reasons_html %}<li>{{ reason|safe }}</li>{% endfor %}</ul>
       {% endif %}
-      {% if event.source_urls %}
+      {% if item.source_urls %}
         <p class="source-links">Sources:
-          {% for url in event.source_urls %}<a href="{{ url }}" target="_blank" rel="noopener noreferrer">{{ loop.index }}</a>{% endfor %}
+          {% for url in item.source_urls %}<a href="{{ url }}" target="_blank" rel="noopener noreferrer">{{ loop.index }}</a>{% endfor %}
         </p>
       {% endif %}
       <p class="research-meta">Status: {{ event.research_status|replace("_", " ") }} · Confidence: {{ event.research_confidence or "not rated" }}{% if event.model_used %} · Model: {{ event.model_used }}{% endif %}</p>

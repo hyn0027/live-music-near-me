@@ -76,6 +76,28 @@ class GenerateHtmlTests(unittest.TestCase):
         self.assertIn(">Music Review</a>", html)
         self.assertNotIn("<script>alert", html)
 
+    def test_removes_aws_credentials_from_rendered_urls(self) -> None:
+        signed_url = (
+            "https://example.s3.amazonaws.com/bio?X-Amz-Credential=secret"
+            "&X-Amz-Signature=signature"
+        )
+        event = Event(
+            link="https://www.bandsintown.com/e/789-test",
+            band="Safe Band",
+            venue="Test Hall",
+            date="Sep 30 - 7 PM",
+            band_info=f"Read the [biography]({signed_url}).",
+            source_urls=[signed_url],
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "events.html"
+            generate_html([event], str(path), "Pittsburgh")
+            html = path.read_text()
+
+        self.assertNotIn("X-Amz-", html)
+        self.assertNotIn("secret", html)
+        self.assertIn("https://example.s3.amazonaws.com/bio", html)
+
 
 if __name__ == "__main__":
     unittest.main()
