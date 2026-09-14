@@ -4,6 +4,7 @@ from urllib.parse import urlparse
 
 from .models import Event, event_db
 from .usage import RunUsage
+from .url_sanitizer import sanitize_url
 from pydantic import BaseModel, Field
 from openai import OpenAI
 import logging
@@ -212,7 +213,7 @@ def get_band_details(
     event.must_see = (
         event.recommendation_score >= 80 and event.research_confidence == "high"
     )
-    return event
+    return event.sanitize_urls()
 
 
 def _source_urls(output: list[object]) -> list[str]:
@@ -222,8 +223,8 @@ def _source_urls(output: list[object]) -> list[str]:
         for source in getattr(action, "sources", None) or []:
             url = getattr(source, "url", "")
             if urlparse(url).scheme in {"http", "https"}:
-                urls.add(url)
+                urls.add(sanitize_url(url))
         url = getattr(action, "url", "")
         if urlparse(url).scheme in {"http", "https"}:
-            urls.add(url)
+            urls.add(sanitize_url(url))
     return sorted(urls)
