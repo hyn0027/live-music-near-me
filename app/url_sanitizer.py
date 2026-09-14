@@ -18,3 +18,14 @@ def sanitize_url(url: str) -> str:
 
 def sanitize_urls_in_text(value: str) -> str:
     return _URL.sub(lambda match: sanitize_url(match.group()), value)
+
+
+def sanitize_url_data(value):
+    """Recursively remove AWS signing parameters from JSON-compatible data."""
+    if isinstance(value, str):
+        return sanitize_urls_in_text(value)
+    if isinstance(value, list):
+        return [sanitize_url_data(item) for item in value]
+    if isinstance(value, dict):
+        return {key: sanitize_url_data(item) for key, item in value.items()}
+    return value

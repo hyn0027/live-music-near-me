@@ -6,6 +6,9 @@ import time
 import os
 import logging
 import re
+import json
+
+from .url_sanitizer import sanitize_url, sanitize_url_data, sanitize_urls_in_text
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +51,16 @@ class Event(BaseModel):
     model_used: Optional[str] = None
     prompt_version: Optional[str] = None
     schema_version: Optional[int] = None
+
+    def sanitize_urls(self) -> "Event":
+        """Remove AWS presigned credentials before an event is cached or rendered."""
+        self.link = sanitize_url(self.link)
+        self.band_info = sanitize_urls_in_text(self.band_info)
+        self.recommendation_reasons = [
+            sanitize_urls_in_text(reason) for reason in self.recommendation_reasons
+        ]
+        self.source_urls = [sanitize_url(url) for url in self.source_urls]
+        return self
 
     def compute_month_and_date(self) -> "Event":
         match = _EVENT_DATE.search(self.date)
@@ -131,6 +144,7 @@ class EventDB(BaseModel):
         return any(e.link == event.link for e in self.events)
 
     def add_event(self, event: Event) -> None:
+        event.sanitize_urls()
         if not any(e.link == event.link for e in self.events):
             self.events.append(event)
         else:
@@ -139,6 +153,7 @@ class EventDB(BaseModel):
             )
 
     def upsert_event(self, event: Event) -> None:
+        event.sanitize_urls()
         for index, existing in enumerate(self.events):
             if existing.link == event.link:
                 self.events[index] = event
@@ -168,8 +183,12 @@ class EventDB(BaseModel):
         return False
 
     def save_to_file(self, file_path: str) -> None:
+        # Defense in depth: sanitize the complete payload so no future field can
+        # accidentally persist an AWS credential or signature.
+        payload = sanitize_url_data(self.model_dump(mode="json"))
         with open(file_path, "w", encoding="utf-8") as file:
-            file.write(self.model_dump_json(indent=4))
+            json.dump(payload, file, indent=4, ensure_ascii=False)
+            file.write("\n")
 
     def load_from_file(self, file_path: str) -> None:
         if file_path is None or not os.path.exists(file_path):
