@@ -72,7 +72,7 @@ async def get_bands_details_async(
     event_db_path: str,
     area: str,
     model: str = DEFAULT_MODEL,
-    max_concurrent: int = 50,
+    max_concurrent: int = 20,
     max_api_calls: int = 50,
     usage: RunUsage | None = None,
 ) -> List[Event]:
