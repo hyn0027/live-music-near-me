@@ -1,0 +1,2 @@
+#!/bin/sh
+exec python scripts/check_generated_assets_for_secrets.py --staged

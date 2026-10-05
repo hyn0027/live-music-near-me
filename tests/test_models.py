@@ -34,6 +34,27 @@ class EventDBSecurityTests(unittest.TestCase):
         self.assertNotIn("secret", stored)
         self.assertIn("language=en", stored)
 
+    def test_redacts_bare_temporary_access_key_ids(self) -> None:
+        temporary_key = "ASIA" + "A" * 16
+        database = EventDB(
+            events=[
+                Event(
+                    link="https://www.bandsintown.com/e/456",
+                    band="Test Band",
+                    venue="Test Hall",
+                    date="Dec 30 - 7 PM",
+                    source_urls=[f"https://example.com/?credential={temporary_key}"],
+                )
+            ]
+        )
+
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "events.json"
+            database.save_to_file(str(path))
+            stored = path.read_text()
+
+        self.assertNotIn(temporary_key, stored)
+
 
 if __name__ == "__main__":
     unittest.main()

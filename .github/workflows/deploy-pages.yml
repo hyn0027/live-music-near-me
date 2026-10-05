@@ -32,6 +32,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Reject credentials in generated assets
+        run: python scripts/check_generated_assets_for_secrets.py
+
       - name: Prepare static site
         run: |
           mkdir -p dist
