@@ -19,8 +19,8 @@ def make_event(identifier: int) -> Event:
         link=f"https://www.bandsintown.com/e/{identifier}",
         band=f"Band {identifier}",
         venue="Hall",
-        date="Sep 30 - 7 PM",
-        numerical_month=9,
+        date="Dec 30 - 7 PM",
+        numerical_month=12,
         numerical_date=30,
     )
 
@@ -60,9 +60,9 @@ class GetBandDetailsTests(unittest.TestCase):
             ["Band 1", "Band 2", "Band 3"],
         )
 
-    def test_only_reuses_cache_for_current_model_prompt_and_schema(self) -> None:
+    def test_reuses_current_cache_even_when_model_does_not_match(self) -> None:
         current = make_event(1)
-        current.model_used = "gpt-test"
+        current.model_used = "older-model"
         current.prompt_version = PROMPT_VERSION
         current.schema_version = SCHEMA_VERSION
         stale = make_event(2)
@@ -75,7 +75,7 @@ class GetBandDetailsTests(unittest.TestCase):
                     "key",
                     "unused.json",
                     "Pittsburgh",
-                    model="gpt-test",
+                    model="newer-model",
                     max_api_calls=0,
                 )
             )

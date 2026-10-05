@@ -55,8 +55,8 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--model",
-        default=os.getenv("OPENAI_MODEL", "gpt-5.6-luna"),
-        help="OpenAI model used to enrich uncached events (default: gpt-5.6-luna)",
+        default=os.getenv("OPENAI_MODEL", "gpt-6-luna"),
+        help="OpenAI model used to enrich uncached events (default: gpt-6-luna)",
     )
     parser.add_argument(
         "--usage-report-path",

@@ -59,10 +59,9 @@ rarity 0–10. Base every reason on evidence. Do not equate popularity alone wit
 For not_found, use score 0 and an empty reasons list."""
 
 
-def _cache_is_current(event: Event, model: str) -> bool:
+def _cache_is_current(event: Event) -> bool:
     return (
-        event.model_used == model
-        and event.prompt_version == PROMPT_VERSION
+        event.prompt_version == PROMPT_VERSION
         and event.schema_version == SCHEMA_VERSION
     )
 
@@ -97,7 +96,7 @@ async def get_bands_details_async(
 
     for i, event in enumerate(events):
         cached_event = event_db.get_event(event.link)
-        if cached_event is not None and _cache_is_current(cached_event, model):
+        if cached_event is not None and _cache_is_current(cached_event):
             results[i] = cached_event
         else:
             events_to_fetch.append((i, event))
